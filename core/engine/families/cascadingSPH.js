@@ -19,10 +19,18 @@ const { cnFast } = require('../primitives/cryptonight');
 
 let nativeGR = null;
 try {
-  nativeGR = require('../ghostrider_native.node');
+  if (process.platform === 'win32') {
+    nativeGR = require('../ghostrider_native_win.node');
+  } else {
+    nativeGR = require('../ghostrider_native.node');
+  }
 } catch (e) {
   try {
-    nativeGR = require('../../ghostrider_native.node');
+    if (process.platform === 'win32') {
+      nativeGR = require('../../ghostrider_native_win.node');
+    } else {
+      nativeGR = require('../../ghostrider_native.node');
+    }
   } catch {}
 }
 

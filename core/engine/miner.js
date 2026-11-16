@@ -106,6 +106,10 @@ class MiningEngine extends EventEmitter {
     if (!msg) return;
 
     if (msg.type === 'solution') {
+      // Discard solution if it doesn't match the current active jobId to prevent pool rejections (e.g. Invalid job id)
+      if (this.currentJob && msg.data.jobId !== this.currentJob.jobId) {
+        return;
+      }
       this.emit('solution', msg.data);
     } else if (msg.type === 'telemetry') {
       this.threadHashrates.set(threadId, msg.data.hashrate);
