@@ -1,0 +1,164 @@
+{
+  "algorithms": [
+    {
+      "id": "autolykos2",
+      "name": "Autolykos2",
+      "hardware_target": "gpu",
+      "description": "Memory-hard GPU algorithm with low power draw for Ergo"
+    },
+    {
+      "id": "blake3",
+      "name": "Blake3",
+      "hardware_target": "both",
+      "description": "Ultra-fast hashing algorithm for Alephium and Kaspa legacy"
+    },
+    {
+      "id": "etchash",
+      "name": "Etchash",
+      "hardware_target": "gpu",
+      "description": "Ethash variant modified for Ethereum Classic with lower DAG growth"
+    },
+    {
+      "id": "ghostrider",
+      "name": "GhostRider",
+      "hardware_target": "cpu",
+      "description": "Algorithm cycling through cryptographic algorithms for Raptoreum"
+    },
+    {
+      "id": "kawpow",
+      "name": "KawPow",
+      "hardware_target": "gpu",
+      "description": "ASIC-resistant GPU algorithm based on ProgPoW for Ravencoin"
+    },
+    {
+      "id": "randomx",
+      "name": "RandomX",
+      "hardware_target": "cpu",
+      "description": "CPU-optimized algorithm using random code execution for Monero"
+    }
+  ],
+  "coins": [
+    {
+      "id": "erg-autolykos2",
+      "symbol": "ERG",
+      "name": "Ergo",
+      "algorithm_id": "autolykos2",
+      "min_vram_gb": "3.0",
+      "icon_url": "https://cryptologos.cc/logos/ergo-erg-logo.png"
+    },
+    {
+      "id": "etc-etchash",
+      "symbol": "ETC",
+      "name": "Ethereum Classic",
+      "algorithm_id": "etchash",
+      "min_vram_gb": "4.0",
+      "icon_url": "https://cryptologos.cc/logos/ethereum-classic-etc-logo.png"
+    },
+    {
+      "id": "xmr-randomx",
+      "symbol": "XMR",
+      "name": "Monero",
+      "algorithm_id": "randomx",
+      "min_vram_gb": "0.0",
+      "icon_url": "https://cryptologos.cc/logos/monero-xmr-logo.png"
+    },
+    {
+      "id": "rtm-ghostrider",
+      "symbol": "RTM",
+      "name": "Raptoreum",
+      "algorithm_id": "ghostrider",
+      "min_vram_gb": "0.0",
+      "icon_url": "https://cryptologos.cc/logos/raptoreum-rtm-logo.png"
+    },
+    {
+      "id": "rvn-kawpow",
+      "symbol": "RVN",
+      "name": "Ravencoin",
+      "algorithm_id": "kawpow",
+      "min_vram_gb": "4.0",
+      "icon_url": "https://cryptologos.cc/logos/ravencoin-rvn-logo.png"
+    }
+  ],
+  "pools": [
+    {
+      "id": 7,
+      "coin_id": "erg-autolykos2",
+      "pool_name": "HeroMiners ERG",
+      "pool_url": "https://ergo.herominers.com",
+      "fee_percent": "0.90",
+      "stratum_host": "ergo.herominers.com",
+      "stratum_port": 1180,
+      "ssl_port": 1181,
+      "region": "GLOBAL",
+      "ping_ms": 38,
+      "status": "online"
+    },
+    {
+      "id": 3,
+      "coin_id": "rvn-kawpow",
+      "pool_name": "HeroMiners",
+      "pool_url": "https://ravencoin.herominers.com",
+      "fee_percent": "0.90",
+      "stratum_host": "ravencoin.herominers.com",
+      "stratum_port": 1140,
+      "ssl_port": 1141,
+      "region": "GLOBAL",
+      "ping_ms": 43,
+      "status": "online"
+    },
+    {
+      "id": 1,
+      "coin_id": "rvn-kawpow",
+      "pool_name": "2Miners",
+      "pool_url": "https://2miners.com/rvn-mining-pool",
+      "fee_percent": "1.00",
+      "stratum_host": "rvn.2miners.com",
+      "stratum_port": 6060,
+      "ssl_port": 16060,
+      "region": "EU",
+      "ping_ms": 44,
+      "status": "online"
+    },
+    {
+      "id": 4,
+      "coin_id": "xmr-randomx",
+      "pool_name": "SupportXMR",
+      "pool_url": "https://supportxmr.com",
+      "fee_percent": "0.60",
+      "stratum_host": "pool.supportxmr.com",
+      "stratum_port": 3333,
+      "ssl_port": 9000,
+      "region": "GLOBAL",
+      "ping_ms": 44,
+      "status": "online"
+    },
+    {
+      "id": 6,
+      "coin_id": "etc-etchash",
+      "pool_name": "2Miners ETC",
+      "pool_url": "https://2miners.com/etc-mining-pool",
+      "fee_percent": "1.00",
+      "stratum_host": "etc.2miners.com",
+      "stratum_port": 1010,
+      "ssl_port": 11010,
+      "region": "GLOBAL",
+      "ping_ms": 46,
+      "status": "online"
+    },
+    {
+      "id": 2,
+      "coin_id": "rvn-kawpow",
+      "pool_name": "2Miners US",
+      "pool_url": "https://2miners.com/rvn-mining-pool",
+      "fee_percent": "1.00",
+      "stratum_host": "us-rvn.2miners.com",
+      "stratum_port": 6060,
+      "ssl_port": 16060,
+      "region": "US",
+      "ping_ms": 131,
+      "status": "online"
+    }
+  ],
+  "updated_at": "2026-11-16T06:50:02.850Z",
+  "source": "api.globalminer.top"
+}

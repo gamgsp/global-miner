@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Miner - Universal Multi-Platform Client</title>
+  <style>
+    :root {
+      --bg-dark: #0a0e17;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(0, 240, 255, 0.25);
+      --cyan: #00f0ff;
+      --cyan-glow: 0 0 16px rgba(0, 240, 255, 0.4);
+      --purple: #a855f7;
+      --green: #10b981;
+      --green-glow: 0 0 16px rgba(16, 185, 129, 0.4);
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text-main: #f3f4f6;
+      --text-dim: #9ca3af;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(0, 240, 255, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Top Navigation Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: rgba(11, 15, 25, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: #000;
+      box-shadow: var(--cyan-glow);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #fff, var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-version {
+      font-size: 11px;
+      background: rgba(0, 240, 255, 0.12);
+      color: var(--cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .rebate-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--amber);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .rebate-pill:hover {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: var(--amber);
+    }
+
+    .autostart-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .autostart-toggle input {
+      cursor: pointer;
+    }
+
+    /* Stratum Failover Banner */
+    .failover-banner {
+      padding: 10px 28px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.3s ease;
+    }
+
+    .failover-banner.status-online {
+      background: rgba(16, 185, 129, 0.1);
+      border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+      color: var(--green);
+    }
+
+    .failover-banner.status-devfee {
+      background: rgba(245, 158, 11, 0.15);
+      border-bottom: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--amber);
+    }
+
+    .failover-banner.status-failover {
+      background: rgba(239, 68, 68, 0.2);
+      border-bottom: 1px solid var(--red);
+      color: #fff;
+      animation: pulseAlert 1.8s infinite;
+    }
+
+    @keyframes pulseAlert {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.75; }
+    }
+
+    /* Main Container Grid */
+    main {
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap: 20px;
+    }
+
+    /* Card Panels */
+    .panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+    }
+
+    /* Column 1: Hardware Telemetry */
+    .hw-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hw-label {
+      font-size: 11px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .hw-value-large {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hw-subtext {
+      font-size: 12px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Column 2: Hashrate & Live Metrics */
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .metric-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .metric-title {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .metric-val {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .metric-val.green { color: var(--green); }
+    .metric-val.cyan { color: var(--cyan); }
+    .metric-val.amber { color: var(--amber); }
+
+    .chart-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+
+    .chart-box canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+
+    /* Column 3: Config Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .form-input, .form-select {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 9px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--cyan);
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, var(--cyan), #00a8ff);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      box-shadow: var(--cyan-glow);
+      transition: all 0.2s;
+      margin-top: auto;
+    }
+
+    .btn-action:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+    }
+
+    .btn-action.btn-stop {
+      background: linear-gradient(135deg, var(--red), #b91c1c);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+    }
+
+    /* Terminal Console */
+    .console-panel {
+      background: #060910;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      height: 140px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-line { color: #9ca3af; }
+    .log-line.log-success { color: var(--green); }
+    .log-line.log-warn { color: var(--amber); }
+    .log-line.log-error { color: var(--red); }
+    .log-line.log-info { color: var(--cyan); }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">GM</div>
+      <div>
+        <span class="brand-title">GLOBAL MINER</span>
+        <span class="brand-version">v1.0.0</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div id="rebatePill" class="rebate-pill" title="Click to view GSPC rebate payout telemetry">
+        <span>★ GSPC REBATE:</span>
+        <strong id="rebateAmount">0.0000 GSPC</strong>
+      </div>
+
+      <label class="autostart-toggle">
+        <input type="checkbox" id="autoStartCheckbox">
+        <span>Auto-Start on Boot</span>
+      </label>
+    </div>
+  </header>
+
+  <!-- Stratum Failover Banner -->
+  <div id="failoverBanner" class="failover-banner status-online">
+    <span id="failoverStatusText">● Stratum Upstream: Primary User Pool Connected</span>
+    <span id="activePoolBadge" style="font-weight: 400; font-size: 12px;">pool.supportxmr.com:3333</span>
+  </div>
+
+  <!-- Main Grid Dashboard -->
+  <main>
+    <div class="grid-container">
+
+      <!-- Column 1: Hardware Telemetry -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">System Hardware</span>
+          <span id="osBadge" style="font-size: 11px; color: var(--cyan);">Linux x64</span>
+        </div>
+
+        <div class="hw-card">
+          <span class="hw-label">Processor</span>
+          <div id="cpuModel" class="hw-value-large">Scanning CPU...</div>
+          <div class="hw-subtext">
+            <span>Cores / Threads: <strong id="cpuThreads">-</strong></span>
+            <span>L3 Cache: <strong id="cpuL3">-</strong></span>
+          </div>
+        </div>
+
+        <div class="hw-card">
+          <span class="hw-label">Graphics Accelerator</span>
+          <div id="gpuModel" class="hw-value-large">Scanning GPU...</div>
+          <div class="hw-subtext">
+            <span>VRAM: <strong id="gpuVram">-</strong></span>
+            <span>Driver: <strong id="gpuDriver">-</strong></span>
+          </div>
+        </div>
+
+        <div class="hw-card">
+          <span class="hw-label">Memory & Storage</span>
+          <div id="ramTotal" class="hw-value-large">-</div>
+          <div class="hw-subtext">
+            <span>Free RAM: <strong id="ramFree">-</strong></span>
+            <span>Recommended: <strong id="recTarget" style="color: var(--cyan);">RandomX</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Live Mining Metrics -->
+      <div class="panel" style="grid-column: 2;">
+        <div class="panel-header">
+          <span class="panel-title">Live Hashing & Performance</span>
+          <span id="uptimeText" style="font-size: 12px; color: var(--text-dim);">Uptime: 00:00:00</span>
+        </div>
+
+        <div class="metric-row">
+          <div class="metric-box">
+            <div class="metric-title">Hashrate</div>
+            <div id="hashrateDisplay" class="metric-val cyan">0.00 H/s</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-title">Accepted Shares</div>
+            <div id="sharesAcceptedDisplay" class="metric-val green">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-title">Efficiency</div>
+            <div id="efficiencyDisplay" class="metric-val amber">100%</div>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase;">Real-Time Hashrate Stream</div>
+          <canvas id="hashrateChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Column 3: Mining Configuration Controls -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Configuration</span>
+          <span id="activeAlgoBadge" style="font-size: 11px; color: var(--purple);">RandomX</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Algorithm</label>
+          <select id="algoSelect" class="form-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Coin Target</label>
+          <select id="coinSelect" class="form-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Stratum Pool</label>
+          <select id="poolSelect" class="form-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mining Wallet Address</label>
+          <input type="text" id="walletInput" class="form-input" placeholder="Enter wallet address">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Worker / Rig ID</label>
+          <input type="text" id="workerInput" class="form-input" placeholder="worker1">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">GSPC Rebate Address</label>
+          <input type="text" id="gspcInput" class="form-input" placeholder="GSPC Address for Dev-Fee Rebates">
+        </div>
+
+        <button id="miningBtn" class="btn-action">START MINING</button>
+      </div>
+
+    </div>
+
+    <!-- Live Event Console -->
+    <div class="panel" style="padding: 12px;">
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Stratum Telemetry & Event Log</div>
+      <div id="consoleLog" class="console-panel">
+        <div class="log-line log-info">[SYSTEM] Global Miner Client initialized. Waiting for user action.</div>
+      </div>
+    </div>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

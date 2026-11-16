@@ -1,0 +1,11 @@
+{
+  "name": "global-miner-gui",
+  "version": "1.0.0",
+  "description": "Global Miner Modern Desktop Client",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Global Ads Media, LLC",
+  "license": "MIT"
+}

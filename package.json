@@ -1,0 +1,37 @@
+{
+  "name": "global-miner",
+  "version": "1.0.0",
+  "description": "Multi-Platform Universal Mining Client with Zero-Downtime Stratum Failover and GSPC Mining Rebates",
+  "main": "cli/index.js",
+  "bin": {
+    "global-miner": "./cli/index.js",
+    "gminer": "./cli/index.js"
+  },
+  "scripts": {
+    "start": "node cli/index.js",
+    "cli": "node cli/index.js",
+    "daemon": "node cli/index.js --daemon",
+    "test": "node cli/index.js --test",
+    "gui": "electron gui/main.js",
+    "service:install": "node cli/autoStart.js install",
+    "service:uninstall": "node cli/autoStart.js uninstall",
+    "service:status": "node cli/autoStart.js status"
+  },
+  "keywords": [
+    "mining",
+    "stratum",
+    "crypto",
+    "failover",
+    "gspc",
+    "randomx",
+    "kawpow",
+    "etchash",
+    "autolykos2",
+    "ghostrider"
+  ],
+  "author": "Global Ads Media, LLC",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
