@@ -12,6 +12,5 @@ miner_error.log
 Thumbs.db
 
 # Electron build artifacts
-dist/
 build/
 .cache/
