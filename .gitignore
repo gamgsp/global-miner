@@ -14,3 +14,4 @@ Thumbs.db
 # Electron build artifacts
 build/
 .cache/
+dist/

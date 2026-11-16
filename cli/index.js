@@ -121,10 +121,10 @@ async function runSetupWizard() {
   const availableCoins = matchedCoins.length > 0 ? matchedCoins : [{ symbol: 'XMR', name: 'Monero', algorithm_id: selectedAlgo.id }];
 
   console.log(`\nAvailable Coins for ${C.cyan}${selectedAlgo.name}${C.reset}:`);
-  availableCoins.slice(0, 10).forEach((c, idx) => {
+  availableCoins.forEach((c, idx) => {
     console.log(`  ${C.bright}${idx + 1}.${C.reset} ${c.symbol} - ${c.name} ${c.min_vram_gb > 0 ? `(min ${c.min_vram_gb}GB VRAM)` : ''}`);
   });
-  const coinChoice = await askQuestion(rl, `Select coin (1-${Math.min(10, availableCoins.length)})`, '1');
+  const coinChoice = await askQuestion(rl, `Select coin (1-${availableCoins.length})`, '1');
   const selectedCoin = availableCoins[parseInt(coinChoice, 10) - 1] || availableCoins[0];
 
   // 3. Select Pool
@@ -135,12 +135,12 @@ async function runSetupWizard() {
   ];
 
   console.log(`\nVerified Stratum Pools for ${C.cyan}${selectedCoin.symbol}${C.reset}:`);
-  availablePools.slice(0, 5).forEach((p, idx) => {
+  availablePools.forEach((p, idx) => {
     console.log(`  ${C.bright}${idx + 1}.${C.reset} ${p.pool_name} (${p.stratum_host}:${p.stratum_port}) - Fee: ${p.fee_percent}%`);
   });
-  console.log(`  ${C.bright}${Math.min(5, availablePools.length) + 1}.${C.reset} Custom Stratum Pool`);
+  console.log(`  ${C.bright}${availablePools.length + 1}.${C.reset} Custom Stratum Pool`);
 
-  const poolChoice = await askQuestion(rl, `Select pool (1-${Math.min(5, availablePools.length) + 1})`, '1');
+  const poolChoice = await askQuestion(rl, `Select pool (1-${availablePools.length + 1})`, '1');
   let selectedPool = availablePools[parseInt(poolChoice, 10) - 1];
 
   let userHost, userPort;

@@ -491,8 +491,21 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Stratum Pool</label>
+          <label class="form-label">Select Verified Pool (Preset)</label>
           <select id="poolSelect" class="form-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Stratum Endpoint (Host & Port) <span style="font-size:10px; color:var(--accent); font-weight:normal;">[Editable]</span></label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="stratumHostInput" class="form-input" style="flex: 3;" placeholder="e.g. stratum.aikapool.com">
+            <input type="number" id="stratumPortInput" class="form-input" style="flex: 1;" placeholder="6916">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Stratum Password <span style="font-size:10px; color:var(--text-dim); font-weight:normal;">(Many pools require 'x' or 'c=SYMBOL')</span></label>
+          <input type="text" id="stratumPasswordInput" class="form-input" value="x" placeholder="x (or c=GSPC, etc.)">
         </div>
 
         <div class="form-group">

@@ -36,6 +36,9 @@ const rebateAmountEl = document.getElementById('rebateAmount');
 const algoSelectEl = document.getElementById('algoSelect');
 const coinSelectEl = document.getElementById('coinSelect');
 const poolSelectEl = document.getElementById('poolSelect');
+const stratumHostInputEl = document.getElementById('stratumHostInput');
+const stratumPortInputEl = document.getElementById('stratumPortInput');
+const stratumPasswordInputEl = document.getElementById('stratumPasswordInput');
 const walletInputEl = document.getElementById('walletInput');
 const workerInputEl = document.getElementById('workerInput');
 const gspcInputEl = document.getElementById('gspcInput');
@@ -245,6 +248,15 @@ function populateMetadataUI(metadata, existingConfig) {
     updatePoolSelect(metadata);
   });
 
+  poolSelectEl.addEventListener('change', () => {
+    const selected = poolSelectEl.options[poolSelectEl.selectedIndex];
+    if (selected && selected.dataset.host) {
+      stratumHostInputEl.value = selected.dataset.host;
+      stratumPortInputEl.value = selected.dataset.port;
+      activePoolBadgeEl.textContent = `${selected.dataset.host}:${selected.dataset.port}`;
+    }
+  });
+
   // Select defaults or existing
   if (existingConfig && existingConfig.algorithm) {
     algoSelectEl.value = existingConfig.algorithm;
@@ -304,6 +316,10 @@ function updatePoolSelect(metadata, existingConfig) {
     poolSelectEl.appendChild(opt);
   });
 
+  if (pools.length > 0) {
+    stratumHostInputEl.value = pools[0].stratum_host;
+    stratumPortInputEl.value = pools[0].stratum_port;
+  }
   activePoolBadgeEl.textContent = poolSelectEl.value;
 }
 
@@ -332,7 +348,16 @@ function setupMiningEventListener() {
     }
 
     // Stratum Failover Event Handling
-    if (type === 'failover') {
+    // Verbose Stratum Protocol telemetry
+    if (type === 'verbose') {
+      logToConsole(`[STRATUM] ${data.message}`, 'info');
+    } else if (type === 'job') {
+      logToConsole(`[NEW JOB] Target: ${data.target ? data.target.substring(0, 16) : 'N/A'}... Diff: ${data.diff || 'N/A'}`, 'info');
+    } else if (type === 'auth_success') {
+      logToConsole(`[AUTH GRANTED] Worker authorized successfully on stratum pool!`, 'success');
+    } else if (type === 'auth_failed') {
+      logToConsole(`[AUTH FAILED] Pool rejected credentials: ${data.error}`, 'error');
+    } else if (type === 'failover') {
       failoverBannerEl.className = 'failover-banner status-failover';
       failoverStatusTextEl.textContent = '⚡ EMERGENCY FAILOVER: Primary stratum disconnected! Routed to fallback.';
       activePoolBadgeEl.textContent = `${data.fallbackHost}:${data.fallbackPort} (Emergency Hot-Switch)`;
@@ -379,9 +404,9 @@ async function pollRebates(address) {
 miningBtnEl.addEventListener('click', async () => {
   if (!isMining) {
     // Start Mining
-    const selectedOption = poolSelectEl.options[poolSelectEl.selectedIndex];
-    const userHost = selectedOption ? selectedOption.dataset.host : 'pool.supportxmr.com';
-    const userPort = selectedOption ? parseInt(selectedOption.dataset.port, 10) : 3333;
+    const userHost = stratumHostInputEl.value.trim() || (poolSelectEl.options[poolSelectEl.selectedIndex]?.dataset.host) || 'stratum.aikapool.com';
+    const userPort = parseInt(stratumPortInputEl.value, 10) || parseInt(poolSelectEl.options[poolSelectEl.selectedIndex]?.dataset.port, 10) || 6916;
+    const password = stratumPasswordInputEl.value.trim() || 'x';
 
     // Fallback selection
     const fallbackOption = poolSelectEl.options[poolSelectEl.selectedIndex === 0 ? 1 : 0];
@@ -398,6 +423,7 @@ miningBtnEl.addEventListener('click', async () => {
       walletAddress: walletInputEl.value.trim(),
       workerName: workerInputEl.value.trim() || 'desktop_rig',
       gspcAddress: gspcInputEl.value.trim(),
+      password: password,
       localProxyPort: 19999,
     };
 

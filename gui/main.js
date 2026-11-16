@@ -123,6 +123,7 @@ function setupIpcHandlers() {
       coinSymbol: config.coin,
       algo: config.algorithm,
       threads: config.threads || 4,
+      password: config.password || 'x',
       gspcAddress: config.gspcAddress,
     });
 
@@ -139,6 +140,10 @@ function setupIpcHandlers() {
 
     activeClient.on('started', (info) => forwardEvent('started', info));
     activeClient.on('connected', (info) => forwardEvent('connected', info));
+    activeClient.on('verbose', (info) => forwardEvent('verbose', info));
+    activeClient.on('job', (info) => forwardEvent('job', info));
+    activeClient.on('auth_success', (info) => forwardEvent('auth_success', info));
+    activeClient.on('auth_failed', (info) => forwardEvent('auth_failed', info));
     activeClient.on('failover', (info) => forwardEvent('failover', info));
     activeClient.on('failover_restored', (info) => forwardEvent('failover_restored', info));
     activeClient.on('dev_fee_start', (info) => forwardEvent('dev_fee_start', info));

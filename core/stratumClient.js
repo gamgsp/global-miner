@@ -246,7 +246,13 @@ class StratumClient extends EventEmitter {
           this.extranonce2Size = res.result[2] || 4;
         }
         // 2. mining.authorize
-        this.sendRpc('mining.authorize', [poolConfig.wallet, poolConfig.password || 'x']);
+        this.sendRpc('mining.authorize', [poolConfig.wallet, poolConfig.password || 'x'], (authRes) => {
+          if (authRes && authRes.result === true) {
+            this.emit('auth_success', {});
+          } else if (authRes && authRes.error) {
+            this.emit('auth_failed', { error: JSON.stringify(authRes.error) });
+          }
+        });
       });
     }
   }
@@ -255,6 +261,16 @@ class StratumClient extends EventEmitter {
    * Dispatch parsed Stratum message
    */
   handlePoolMessage(msg) {
+    if (msg.method) {
+      this.emit('verbose', { message: `<-- Received method: ${msg.method}` });
+    } else if (msg.id !== undefined && msg.id !== null) {
+      if (msg.error) {
+        this.emit('verbose', { message: `<-- RPC error (id=${msg.id}): ${JSON.stringify(msg.error)}` });
+      } else {
+        this.emit('verbose', { message: `<-- RPC response OK (id=${msg.id})` });
+      }
+    }
+
     // 1. Match Response Callback
     if (msg.id !== undefined && msg.id !== null && this.pendingRpc.has(msg.id)) {
       const callback = this.pendingRpc.get(msg.id);
@@ -285,6 +301,7 @@ class StratumClient extends EventEmitter {
     if (!params || !Array.isArray(params)) return;
     const [jobId, prevHash, coinb1, coinb2, merkleBranch, version, nbits, ntime, cleanJobs] = params;
     this.currentJobId = jobId;
+    this.emit('job', { jobId, target: this.currentTarget, diff: this.currentDifficulty });
 
     // Calculate header buffer from job components
     const headerBuf = Buffer.alloc(80, 0);
