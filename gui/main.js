@@ -1,5 +1,6 @@
 /**
  * Global Miner - Desktop GUI Main Process (Electron)
+ * Direct integration with proprietary StratumClient & 133-Algorithm Mining Engine
  */
 
 const { app, BrowserWindow, ipcMain } = require('electron');
@@ -8,23 +9,22 @@ const fs = require('fs');
 
 const { detectHardware } = require('../core/hardware');
 const { fetchMetadata, getRebates } = require('../core/apiSync');
-const { StratumProxy } = require('../core/stratumProxy');
+const { StratumClient } = require('../core/stratumClient');
 const { installService, uninstallService, checkServiceStatus } = require('../cli/autoStart');
 
 const CONFIG_PATH = path.join(__dirname, '..', 'config.json');
 
 let mainWindow = null;
-let activeProxy = null;
-let internalMinerInterval = null;
+let activeClient = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1140,
-    height: 780,
-    minWidth: 960,
-    minHeight: 680,
+    width: 1180,
+    height: 800,
+    minWidth: 980,
+    minHeight: 700,
     backgroundColor: '#0b0f19',
-    title: 'Global Miner - Universal Multi-Platform Client',
+    title: 'Global Miner - Proprietary 133-Algorithm Universal Mining Client',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -36,18 +36,14 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    stopActiveProxy();
+    stopActiveClient();
   });
 }
 
-function stopActiveProxy() {
-  if (internalMinerInterval) {
-    clearInterval(internalMinerInterval);
-    internalMinerInterval = null;
-  }
-  if (activeProxy) {
-    try { activeProxy.stop(); } catch {}
-    activeProxy = null;
+async function stopActiveClient() {
+  if (activeClient) {
+    try { await activeClient.stop(); } catch {}
+    activeClient = null;
   }
 }
 
@@ -62,7 +58,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  stopActiveProxy();
+  stopActiveClient();
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -115,10 +111,9 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('start-mining', async (_, config) => {
-    stopActiveProxy();
+    await stopActiveClient();
 
-    activeProxy = new StratumProxy({
-      localPort: config.localProxyPort || 19999,
+    activeClient = new StratumClient({
       userHost: config.userHost,
       userPort: config.userPort,
       userWallet: config.walletAddress,
@@ -127,49 +122,39 @@ function setupIpcHandlers() {
       fallbackPort: config.fallbackPort,
       coinSymbol: config.coin,
       algo: config.algorithm,
+      threads: config.threads || 4,
       gspcAddress: config.gspcAddress,
     });
 
-    let baseHashrate = config.algorithm === 'randomx' ? 2450 : 25800000;
-    activeProxy.setHashrate(baseHashrate);
-
-    // Forward proxy events to GUI renderer
+    // Forward StratumClient events to GUI renderer
     const forwardEvent = (type, data) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('mining-event', { type, data, stats: activeProxy ? activeProxy.getStats() : null });
+        mainWindow.webContents.send('mining-event', {
+          type,
+          data,
+          stats: activeClient ? activeClient.getStats() : null
+        });
       }
     };
 
-    activeProxy.on('started', (info) => forwardEvent('started', info));
-    activeProxy.on('failover', (info) => forwardEvent('failover', info));
-    activeProxy.on('failover_restored', (info) => forwardEvent('failover_restored', info));
-    activeProxy.on('dev_fee_start', (info) => forwardEvent('dev_fee_start', info));
-    activeProxy.on('dev_fee_end', (info) => forwardEvent('dev_fee_end', info));
-    activeProxy.on('share_accepted', (info) => forwardEvent('share_accepted', info));
-    activeProxy.on('share_rejected', (info) => forwardEvent('share_rejected', info));
-    activeProxy.on('telemetry_update', (info) => forwardEvent('telemetry_update', info));
+    activeClient.on('started', (info) => forwardEvent('started', info));
+    activeClient.on('connected', (info) => forwardEvent('connected', info));
+    activeClient.on('failover', (info) => forwardEvent('failover', info));
+    activeClient.on('failover_restored', (info) => forwardEvent('failover_restored', info));
+    activeClient.on('dev_fee_start', (info) => forwardEvent('dev_fee_start', info));
+    activeClient.on('dev_fee_end', () => forwardEvent('dev_fee_end', {}));
+    activeClient.on('share_accepted', (info) => forwardEvent('share_accepted', info));
+    activeClient.on('share_rejected', (info) => forwardEvent('share_rejected', info));
+    activeClient.on('telemetry', (stats) => forwardEvent('tick', { hashrate: stats.hashrate, stats }));
+    activeClient.on('gspc_rebate_update', (rebate) => forwardEvent('rebate_update', rebate));
 
-    await activeProxy.start();
+    await activeClient.start();
 
-    // Internal simulation tick for GUI metrics display
-    internalMinerInterval = setInterval(() => {
-      if (!activeProxy || !activeProxy.isRunning) return;
-      const jitter = (Math.random() - 0.5) * (baseHashrate * 0.05);
-      const currentRate = Math.max(100, Math.round(baseHashrate + jitter));
-      activeProxy.setHashrate(currentRate);
-
-      if (Math.random() < 0.25) {
-        activeProxy.stats.sharesAccepted++;
-      }
-
-      forwardEvent('tick', { hashrate: currentRate });
-    }, 2000);
-
-    return { success: true, localPort: activeProxy.localPort };
+    return { success: true };
   });
 
-  ipcMain.handle('stop-mining', () => {
-    stopActiveProxy();
+  ipcMain.handle('stop-mining', async () => {
+    await stopActiveClient();
     return { success: true };
   });
 }

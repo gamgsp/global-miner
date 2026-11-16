@@ -11,11 +11,16 @@
     "start": "node cli/index.js",
     "cli": "node cli/index.js",
     "daemon": "node cli/index.js --daemon",
-    "test": "node cli/index.js --test",
+    "test": "node cli/index.js --test && node test/simulator.js",
+    "test:simulator": "node test/simulator.js",
     "gui": "electron gui/main.js",
     "service:install": "node cli/autoStart.js install",
     "service:uninstall": "node cli/autoStart.js uninstall",
-    "service:status": "node cli/autoStart.js status"
+    "service:status": "node cli/autoStart.js status",
+    "build:linux": "bash build-scripts/build-linux.sh",
+    "build:win": "bash build-scripts/build-windows.sh",
+    "build:mac": "bash build-scripts/build-mac.sh",
+    "build:all": "node build-scripts/build-all.js"
   },
   "keywords": [
     "mining",

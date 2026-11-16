@@ -213,13 +213,27 @@ function populateHardwareUI(hw) {
 function populateMetadataUI(metadata, existingConfig) {
   if (!metadata) return;
 
-  // 1. Algorithms
+  // 1. Algorithms grouped by Family
   algoSelectEl.innerHTML = '';
+  
+  // Categorize algorithms
+  const familyMap = new Map();
   metadata.algorithms.forEach(algo => {
-    const opt = document.createElement('option');
-    opt.value = algo.id;
-    opt.textContent = `${algo.name} [${algo.hardware_target.toUpperCase()}]`;
-    algoSelectEl.appendChild(opt);
+    const fam = algo.family || (algo.hardware_target === 'cpu' ? 'CPU Mining Algorithms' : 'GPU Mining Algorithms');
+    if (!familyMap.has(fam)) familyMap.set(fam, []);
+    familyMap.get(fam).push(algo);
+  });
+
+  familyMap.forEach((algos, familyName) => {
+    const group = document.createElement('optgroup');
+    group.label = familyName;
+    algos.forEach(algo => {
+      const opt = document.createElement('option');
+      opt.value = algo.id;
+      opt.textContent = `${algo.name} [${(algo.hardware_target || 'CPU').toUpperCase()}]`;
+      group.appendChild(opt);
+    });
+    algoSelectEl.appendChild(group);
   });
 
   // 2. Event Listeners for dependent selects
@@ -396,8 +410,8 @@ miningBtnEl.addEventListener('click', async () => {
     miningBtnEl.textContent = 'STOP MINING';
     miningBtnEl.classList.add('btn-stop');
 
-    logToConsole(`Mining started on ${config.coin} (${config.algorithm})`, 'success');
-    logToConsole(`Stratum proxy active on 127.0.0.1:19999`, 'info');
+    logToConsole(`Proprietary Mining Engine active on ${config.coin} (${config.algorithm})`, 'success');
+    logToConsole(`Connected directly to stratum+tcp://${config.userHost}:${config.userPort}`, 'info');
 
     uptimeSeconds = 0;
     uptimeTimer = setInterval(() => {

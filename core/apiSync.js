@@ -2,6 +2,7 @@
  * Global Miner - API Synchronization Client
  * Dynamic cloud stratum, algorithm, coin catalog & GSPC rebate tracker
  * Features local cache and offline fallback.
+ * Queries https://api.globalminer.top/api/v1/tree and reports to /api/v1/miner/heartbeat
  */
 
 const fs = require('fs');
@@ -10,35 +11,6 @@ const net = require('net');
 
 const DEFAULT_API_BASE = process.env.GLOBALMINER_API || 'https://api.globalminer.top';
 const CACHE_FILE = path.join(__dirname, '..', 'metadata_cache.json');
-
-// Hardcoded emergency offline fallback dataset
-const OFFLINE_FALLBACK_METADATA = {
-  algorithms: [
-    { id: 'kawpow', name: 'KawPow', hardware_target: 'gpu', description: 'ASIC-resistant GPU algorithm for Ravencoin (min 4GB VRAM)' },
-    { id: 'randomx', name: 'RandomX', hardware_target: 'cpu', description: 'CPU-optimized algorithm using random code execution for Monero' },
-    { id: 'etchash', name: 'Etchash', hardware_target: 'gpu', description: 'Ethash variant modified for Ethereum Classic (min 4GB VRAM)' },
-    { id: 'autolykos2', name: 'Autolykos2', hardware_target: 'gpu', description: 'Memory-hard GPU algorithm for Ergo (min 3GB VRAM)' },
-    { id: 'ghostrider', name: 'GhostRider', hardware_target: 'cpu', description: 'Multi-algo cycling CPU algorithm for Raptoreum' }
-  ],
-  coins: [
-    { id: 'rvn-kawpow', symbol: 'RVN', name: 'Ravencoin', algorithm_id: 'kawpow', min_vram_gb: '4.0', icon_url: 'https://cryptologos.cc/logos/ravencoin-rvn-logo.png' },
-    { id: 'xmr-randomx', symbol: 'XMR', name: 'Monero', algorithm_id: 'randomx', min_vram_gb: '0.0', icon_url: 'https://cryptologos.cc/logos/monero-xmr-logo.png' },
-    { id: 'etc-etchash', symbol: 'ETC', name: 'Ethereum Classic', algorithm_id: 'etchash', min_vram_gb: '4.0', icon_url: 'https://cryptologos.cc/logos/ethereum-classic-etc-logo.png' },
-    { id: 'erg-autolykos2', symbol: 'ERG', name: 'Ergo', algorithm_id: 'autolykos2', min_vram_gb: '3.0', icon_url: 'https://cryptologos.cc/logos/ergo-erg-logo.png' },
-    { id: 'rtm-ghostrider', symbol: 'RTM', name: 'Raptoreum', algorithm_id: 'ghostrider', min_vram_gb: '0.0', icon_url: 'https://cryptologos.cc/logos/raptoreum-rtm-logo.png' }
-  ],
-  pools: [
-    { id: 1, coin_id: 'rvn-kawpow', pool_name: '2Miners', pool_url: 'https://2miners.com/rvn-mining-pool', fee_percent: '1.00', stratum_host: 'rvn.2miners.com', stratum_port: 6060, ssl_port: 16060, region: 'EU', ping_ms: 50, status: 'online' },
-    { id: 2, coin_id: 'rvn-kawpow', pool_name: '2Miners US', pool_url: 'https://2miners.com/rvn-mining-pool', fee_percent: '1.00', stratum_host: 'us-rvn.2miners.com', stratum_port: 6060, ssl_port: 16060, region: 'US', ping_ms: 60, status: 'online' },
-    { id: 3, coin_id: 'rvn-kawpow', pool_name: 'HeroMiners', pool_url: 'https://ravencoin.herominers.com', fee_percent: '0.90', stratum_host: 'ravencoin.herominers.com', stratum_port: 1140, ssl_port: 1141, region: 'GLOBAL', ping_ms: 55, status: 'online' },
-    { id: 4, coin_id: 'xmr-randomx', pool_name: 'SupportXMR', pool_url: 'https://supportxmr.com', fee_percent: '0.60', stratum_host: 'pool.supportxmr.com', stratum_port: 3333, ssl_port: 9000, region: 'GLOBAL', ping_ms: 45, status: 'online' },
-    { id: 5, coin_id: 'xmr-randomx', pool_name: '2Miners Monero', pool_url: 'https://2miners.com/xmr-mining-pool', fee_percent: '1.00', stratum_host: 'xmr.2miners.com', stratum_port: 2222, ssl_port: 12222, region: 'GLOBAL', ping_ms: 50, status: 'online' },
-    { id: 6, coin_id: 'etc-etchash', pool_name: '2Miners ETC', pool_url: 'https://2miners.com/etc-mining-pool', fee_percent: '1.00', stratum_host: 'etc.2miners.com', stratum_port: 1010, ssl_port: 11010, region: 'GLOBAL', ping_ms: 50, status: 'online' },
-    { id: 7, coin_id: 'erg-autolykos2', pool_name: 'HeroMiners ERG', pool_url: 'https://ergo.herominers.com', fee_percent: '0.90', stratum_host: 'ergo.herominers.com', stratum_port: 1180, ssl_port: 1181, region: 'GLOBAL', ping_ms: 55, status: 'online' }
-  ],
-  is_offline_fallback: true,
-  updated_at: new Date().toISOString()
-};
 
 /**
  * Probes TCP ping latency to a stratum host
@@ -92,101 +64,160 @@ function saveDiskCache(data) {
 }
 
 /**
- * Fetches dynamic metadata from master API with disk cache and offline fallback
+ * Normalizes tree response from /api/v1/tree into structured indexes
+ */
+function normalizeTreeData(treeData) {
+  const algorithms = [];
+  const coins = [];
+  const pools = [];
+
+  for (const algo of treeData) {
+    algorithms.push({
+      id: algo.id,
+      name: algo.name,
+      hardware_target: (algo.hardware_type || 'cpu').toLowerCase(),
+      hardware_type: algo.hardware_type || 'CPU',
+      min_vram_gb: algo.min_vram_gb || 0,
+      coins_count: algo.coins_count || (algo.coins ? algo.coins.length : 0),
+      description: `${algo.name} (${algo.hardware_type || 'CPU'}${algo.min_vram_gb ? `, ${algo.min_vram_gb}GB VRAM` : ''})`
+    });
+
+    if (algo.coins && Array.isArray(algo.coins)) {
+      for (const coin of algo.coins) {
+        coins.push({
+          id: coin.id,
+          symbol: coin.symbol,
+          name: coin.name,
+          algorithm_id: algo.id,
+          network_hashrate: coin.network_hashrate || '0',
+          pools_count: coin.pools_count || (coin.pools ? coin.pools.length : 0),
+          best_ping: coin.best_ping || 999
+        });
+
+        if (coin.pools && Array.isArray(coin.pools)) {
+          for (const pool of coin.pools) {
+            pools.push({
+              id: pool.id,
+              coin_id: coin.id,
+              coin_symbol: coin.symbol,
+              algorithm_id: algo.id,
+              pool_name: pool.pool_name,
+              stratum_host: pool.stratum_host,
+              stratum_port: pool.stratum_port,
+              ssl_port: pool.ssl_port,
+              fee_percent: pool.fee_percent || '1.00',
+              min_payout: pool.min_payout || '0.01',
+              ping_ms: pool.ping_ms || 50
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    status: 'success',
+    count: algorithms.length,
+    tree: treeData,
+    algorithms,
+    coins,
+    pools,
+    updated_at: new Date().toISOString()
+  };
+}
+
+/**
+ * Fetches dynamic metadata from /api/v1/tree with disk cache and offline fallback
  */
 async function fetchMetadata(options = {}) {
   const apiBase = options.apiBase || DEFAULT_API_BASE;
-  const timeoutMs = options.timeoutMs || 4000;
+  const timeoutMs = options.timeoutMs || 8000;
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    const res = await fetch(`${apiBase}/api/v1/metadata`, {
+    const res = await fetch(`${apiBase}/api/v1/tree`, {
       signal: controller.signal,
       headers: { 'Accept': 'application/json', 'User-Agent': 'GlobalMinerClient/1.0' }
     });
     clearTimeout(timeout);
 
     if (res.ok) {
-      const data = await res.json();
-      if (data && data.algorithms && data.coins && data.pools) {
-        data.source = 'api.globalminer.top';
-        saveDiskCache(data);
-        return data;
+      const json = await res.json();
+      if (json && json.status === 'success' && Array.isArray(json.data)) {
+        const normalized = normalizeTreeData(json.data);
+        normalized.source = 'api.globalminer.top/api/v1/tree';
+        saveDiskCache(normalized);
+        return normalized;
       }
     }
   } catch (err) {
-    console.warn(`[ApiSync] Master API unreachable (${err.message}). Using local cache/fallback.`);
+    console.warn(`[ApiSync] Master tree API unreachable (${err.message}). Using local cache.`);
   }
 
   // Fallback 1: Disk Cache
   const cached = loadDiskCache();
-  if (cached && cached.algorithms && cached.coins && cached.pools) {
+  if (cached && (cached.tree || (cached.algorithms && cached.algorithms.length > 0))) {
+    if (cached.tree && (!cached.algorithms || cached.algorithms.length < cached.tree.length)) {
+      const fixed = normalizeTreeData(cached.tree);
+      fixed.source = 'disk_cache_normalized';
+      return fixed;
+    }
     cached.source = 'disk_cache';
     return cached;
   }
 
-  // Fallback 2: Built-in offline fallback
-  return OFFLINE_FALLBACK_METADATA;
+  // Fallback 2: Empty baseline
+  return {
+    status: 'fallback',
+    count: 0,
+    tree: [],
+    algorithms: [],
+    coins: [],
+    pools: [],
+    updated_at: new Date().toISOString()
+  };
 }
 
 /**
  * Requests dynamic job token from API for dev fee or fallback routing
  */
 async function getJobToken(coinSymbol, workerId = 'rig', isFallback = false, apiBase = DEFAULT_API_BASE) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-
-    const res = await fetch(`${apiBase}/api/v1/job-token`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coin_symbol: coinSymbol, worker_id: workerId, is_fallback: isFallback })
-    });
-    clearTimeout(timeout);
-
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn('[ApiSync] Failed to fetch job token from API:', err.message);
-  }
-
-  // Fallback dev token if server is unreachable
   return {
     stratum_host: 'rvn.2miners.com',
     stratum_port: 6060,
-    dev_wallet: 'RXK1SampleDevWalletForRavencoin',
+    dev_wallet: '48edfHu7V9Z84YzzMa6fUueoXZ6nW5Hp8py7eOB18ebC8AemS33DBLWs3H7otXMV33WDsen3R7C1wK58MmExncBhDZSTorYn',
     worker_name: `gminer_${workerId}`,
     is_fallback: Boolean(isFallback),
     expires_in_seconds: 60,
-    source: 'local_fallback'
+    source: 'local_config'
   };
 }
 
 /**
  * Sends telemetry & heartbeat to accumulate GSPC rebate rewards
+ * Endpoint: https://api.globalminer.top/api/v1/miner/heartbeat
  */
 async function sendHeartbeat(data, apiBase = DEFAULT_API_BASE) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     const payload = {
-      worker_id: data.worker_id || 'rig',
-      gspc_address: data.gspc_address || '',
-      os: data.os || process.platform,
-      coin_symbol: data.coin_symbol || 'RVN',
-      algo: data.algo || 'kawpow',
-      hashrate: data.hashrate || 0,
-      minutes_mined: data.minutes_mined || 1,
+      miner_id: data.miner_id || data.worker_id || 'gminer-worker-1',
+      gspc_address: (data.gspc_address || '').trim() || '0x0000000000000000000000000000000000000000',
+      coin: (data.coin || data.coin_symbol || 'XMR').toUpperCase(),
+      algorithm: data.algorithm || data.algo || 'randomx',
+      hashrate: Number(data.hashrate) || 0,
+      total_shares_submitted: Number(data.total_shares_submitted || data.shares || 0),
       is_dev_fee: Boolean(data.is_dev_fee),
       is_fallback: Boolean(data.is_fallback),
+      minutes_mined: Number(data.minutes_mined) || 1,
+      os: process.platform
     };
 
-    const res = await fetch(`${apiBase}/api/v1/heartbeat`, {
+    const res = await fetch(`${apiBase}/api/v1/miner/heartbeat`, {
       method: 'POST',
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
@@ -198,9 +229,9 @@ async function sendHeartbeat(data, apiBase = DEFAULT_API_BASE) {
       return await res.json();
     }
   } catch (err) {
-    console.warn('[ApiSync] Heartbeat transmission deferred:', err.message);
+    console.warn('[ApiSync] Heartbeat error:', err.message);
   }
-  return { success: false };
+  return { status: 'offline', rebate_accrued_this_beat: 0, pending_rebate_gspc: 0 };
 }
 
 /**
@@ -211,39 +242,31 @@ async function getRebates(address, apiBase = DEFAULT_API_BASE) {
     return { pending_rebate_gspc: 0, lifetime_rebate_gspc: 0, total_active_hours: '0.0', active_workers_count: 0, recent_payouts: [] };
   }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-
-    const res = await fetch(`${apiBase}/api/v1/rebates/${encodeURIComponent(address.trim())}`, {
-      signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
-    });
-    clearTimeout(timeout);
-
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn('[ApiSync] Failed to query rebates:', err.message);
-  }
+  // Ping heartbeat with 0 hashrate to obtain current ledger snapshot
+  const beat = await sendHeartbeat({
+    miner_id: `query-${Date.now()}`,
+    gspc_address: address.trim(),
+    hashrate: 0,
+    coin: 'XMR',
+    algorithm: 'randomx'
+  }, apiBase);
 
   return {
     gspc_address: address,
-    pending_rebate_gspc: 0,
-    lifetime_rebate_gspc: 0,
-    total_active_hours: '0.0',
-    active_workers_count: 0,
+    pending_rebate_gspc: beat.pending_rebate_gspc || 0,
+    lifetime_rebate_gspc: beat.lifetime_paid_gspc || 0,
+    total_active_hours: ((beat.total_active_minutes || 0) / 60).toFixed(1),
+    active_workers_count: 1,
     recent_payouts: [],
-    offline: true
+    last_seen: beat.last_seen || new Date().toISOString()
   };
 }
 
 module.exports = {
   DEFAULT_API_BASE,
-  OFFLINE_FALLBACK_METADATA,
   probeStratumLatency,
   fetchMetadata,
+  normalizeTreeData,
   getJobToken,
   sendHeartbeat,
   getRebates,
