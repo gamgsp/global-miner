@@ -273,7 +273,10 @@ class StratumClient extends EventEmitter {
           this.extranonce2Size = res.result[2] || 4;
         }
         // 2. mining.authorize
-        this.sendRpc('mining.authorize', [poolConfig.wallet, poolConfig.password || 'x'], (authRes) => {
+        const authUser = (poolConfig.wallet.includes('.') || !poolConfig.worker)
+          ? poolConfig.wallet
+          : `${poolConfig.wallet}.${poolConfig.worker}`;
+        this.sendRpc('mining.authorize', [authUser, poolConfig.password || 'x'], (authRes) => {
           if (authRes && authRes.result === true) {
             this.emit('auth_success', {});
           } else if (authRes && authRes.error) {
@@ -431,8 +434,12 @@ class StratumClient extends EventEmitter {
       const nonceHex = solution.nonce.toString(16).padStart(8, '0');
       const ntime = solution.ntime || this.currentNtime || Math.floor(Date.now() / 1000).toString(16);
       const extranonce2 = solution.extranonce2 || this.lastExtranonce2Hex || '00000000';
+      const submitUser = (curPool.worker && curPool.worker !== 'rig_desktop' && curPool.worker !== 'worker1' && curPool.wallet.includes('.'))
+        ? curPool.wallet
+        : (curPool.wallet.includes('.') ? curPool.wallet : (curPool.worker ? `${curPool.wallet}.${curPool.worker}` : curPool.wallet));
+
       this.sendRpc('mining.submit', [
-        curPool.wallet,
+        submitUser,
         solution.jobId,
         extranonce2,
         ntime,

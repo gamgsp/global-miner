@@ -408,10 +408,17 @@ miningBtnEl.addEventListener('click', async () => {
     const userPort = parseInt(stratumPortInputEl.value, 10) || parseInt(poolSelectEl.options[poolSelectEl.selectedIndex]?.dataset.port, 10) || 6916;
     const password = stratumPasswordInputEl.value.trim() || 'x';
 
-    // Fallback selection
-    const fallbackOption = poolSelectEl.options[poolSelectEl.selectedIndex === 0 ? 1 : 0];
-    const fallbackHost = fallbackOption ? fallbackOption.dataset.host : 'xmr.2miners.com';
-    const fallbackPort = fallbackOption ? parseInt(fallbackOption.dataset.port, 10) : 2222;
+    // Fallback selection (pick a different valid pool from the dropdown or stay on the current host)
+    let fallbackHost = userHost;
+    let fallbackPort = userPort;
+    for (let i = 0; i < poolSelectEl.options.length; i++) {
+      const opt = poolSelectEl.options[i];
+      if (opt && opt.dataset.host && (opt.dataset.host !== userHost || parseInt(opt.dataset.port, 10) !== userPort)) {
+        fallbackHost = opt.dataset.host;
+        fallbackPort = parseInt(opt.dataset.port, 10);
+        break;
+      }
+    }
 
     const config = {
       algorithm: algoSelectEl.value,
