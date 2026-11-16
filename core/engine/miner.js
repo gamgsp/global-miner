@@ -90,6 +90,8 @@ class MiningEngine extends EventEmitter {
           target: job.target,
           algoId: this.algoId,
           startNonce: job.startNonce || 0,
+          ntime: job.ntime,
+          extranonce2: job.extranonce2,
         }
       });
     }

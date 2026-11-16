@@ -17,6 +17,15 @@ const crypto = require('crypto');
 const sph = require('../primitives/sph');
 const { cnFast } = require('../primitives/cryptonight');
 
+let nativeGR = null;
+try {
+  nativeGR = require('../ghostrider_native.node');
+} catch (e) {
+  try {
+    nativeGR = require('../../ghostrider_native.node');
+  } catch {}
+}
+
 // SPH Hash List used in X16R/GhostRider
 const SPH_HASHES = [
   sph.blake512,      // 0
@@ -128,13 +137,17 @@ function x25x(headerBuf, nonce) {
  */
 function ghostrider(headerBuf, nonce) {
   const buf = Buffer.isBuffer(headerBuf) ? headerBuf : Buffer.from(headerBuf);
-  const input = Buffer.alloc(buf.length + 4);
-  buf.copy(input);
+  const input = Buffer.alloc(80, 0);
+  buf.copy(input, 0, 0, Math.min(buf.length, 80));
   if (typeof nonce === 'number') {
-    input.writeUInt32LE(nonce, buf.length);
+    input.writeUInt32LE(nonce, 76);
   }
 
-  // Core SPH chain (6 algorithms)
+  if (nativeGR && typeof nativeGR.hash === 'function') {
+    return nativeGR.hash(input);
+  }
+
+  // Core SPH chain (6 algorithms) fallback
   let h = Buffer.from(input);
   const seed = crypto.createHash('sha256').update(input).digest();
   for (let i = 0; i < 6; i++) {

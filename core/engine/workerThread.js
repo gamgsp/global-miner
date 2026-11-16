@@ -36,6 +36,8 @@ function scanBatch(batchSize = 250) {
             nonce: curNonce,
             hash: hash.toString('hex'),
             algoId: currentJob.algoId,
+            ntime: currentJob.ntime,
+            extranonce2: currentJob.extranonce2,
             threadId
           }
         });

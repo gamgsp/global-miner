@@ -1,0 +1,25 @@
+{
+  "appId": "top.globalminer.app",
+  "productName": "Global Miner",
+  "directories": {
+    "output": "dist/gui"
+  },
+  "files": [
+    "gui/**/*",
+    "core/**/*",
+    "cli/**/*",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "gui/main.js"
+  },
+  "win": {
+    "target": ["nsis", "portable"]
+  },
+  "linux": {
+    "target": ["AppImage", "deb"]
+  },
+  "mac": {
+    "target": ["dmg"]
+  }
+}

@@ -11,10 +11,34 @@
 
 const net = require('net');
 const tls = require('tls');
+const crypto = require('crypto');
 const EventEmitter = require('events');
 const { MiningEngine } = require('./engine/miner');
 const { getAlgorithm } = require('./engine/registry');
 const { sendHeartbeat, probeStratumLatency } = require('./apiSync');
+
+function sha256d(buf) {
+  return crypto.createHash('sha256').update(crypto.createHash('sha256').update(buf).digest()).digest();
+}
+
+function swab32(buf) {
+  const out = Buffer.alloc(buf.length);
+  for (let i = 0; i < buf.length; i += 4) {
+    out[i] = buf[i + 3];
+    out[i + 1] = buf[i + 2];
+    out[i + 2] = buf[i + 1];
+    out[i + 3] = buf[i];
+  }
+  return out;
+}
+
+function getTargetFactor(algoId) {
+  const id = (algoId || '').toLowerCase().replace(/[\s\-_]/g, '');
+  if (id.includes('sha256') || id === 'sha256d') return 1.0;
+  if (id.includes('x11') || id.includes('x16') || id.includes('tribus') || id.includes('allium')) return 256.0;
+  // Ghostrider, Yespower, Scrypt, Argon2, NeoScrypt, etc. use 65536.0
+  return 65536.0;
+}
 
 class StratumClient extends EventEmitter {
   constructor(options = {}) {
@@ -73,6 +97,9 @@ class StratumClient extends EventEmitter {
     this.currentDifficulty = 1.0;
     this.currentTarget = '00000000ffff0000000000000000000000000000000000000000000000000000';
     this.currentJobId = null;
+    this.currentNtime = null;
+    this.currentExtranonce2 = 0;
+    this.lastExtranonce2Hex = '00000000';
 
     // Timers
     this.devFeeTimer = null;
@@ -301,22 +328,46 @@ class StratumClient extends EventEmitter {
     if (!params || !Array.isArray(params)) return;
     const [jobId, prevHash, coinb1, coinb2, merkleBranch, version, nbits, ntime, cleanJobs] = params;
     this.currentJobId = jobId;
-    this.emit('job', { jobId, target: this.currentTarget, diff: this.currentDifficulty });
+    this.currentNtime = ntime;
+    this.currentExtranonce2 = (this.currentExtranonce2 || 0) + 1;
+    const extranonce2Hex = this.currentExtranonce2.toString(16).padStart(this.extranonce2Size * 2, '0');
+    this.lastExtranonce2Hex = extranonce2Hex;
 
-    // Calculate header buffer from job components
-    const headerBuf = Buffer.alloc(80, 0);
-    try {
-      if (prevHash) {
-        Buffer.from(prevHash, 'hex').copy(headerBuf, 4, 0, 32);
+    // 1. Calculate coinbase hash (coinb1 + extranonce1 + extranonce2 + coinb2) via sha256d
+    const coinbaseBuf = Buffer.concat([
+      Buffer.from(coinb1 || '', 'hex'),
+      Buffer.from(this.extranonce1 || '', 'hex'),
+      Buffer.from(extranonce2Hex, 'hex'),
+      Buffer.from(coinb2 || '', 'hex')
+    ]);
+    const coinbaseHash = sha256d(coinbaseBuf);
+
+    // 2. Merkle Root traversing merkleBranch
+    let merkleRoot = coinbaseHash;
+    if (Array.isArray(merkleBranch)) {
+      for (const branch of merkleBranch) {
+        merkleRoot = sha256d(Buffer.concat([merkleRoot, Buffer.from(branch, 'hex')]));
       }
-    } catch {}
+    }
+
+    // 3. Assemble full 80-byte block header
+    const headerBuf = Buffer.alloc(80, 0);
+    if (version) Buffer.from(version, 'hex').reverse().copy(headerBuf, 0, 0, 4);
+    if (prevHash) swab32(Buffer.from(prevHash, 'hex')).copy(headerBuf, 4, 0, 32);
+    merkleRoot.copy(headerBuf, 36, 0, 32);
+    if (ntime) Buffer.from(ntime, 'hex').reverse().copy(headerBuf, 68, 0, 4);
+    if (nbits) Buffer.from(nbits, 'hex').reverse().copy(headerBuf, 72, 0, 4);
+
+    this.emit('job', { jobId, target: this.currentTarget, diff: this.currentDifficulty, ntime });
 
     this.engine.setJob({
       jobId,
       header: headerBuf,
       target: this.currentTarget,
       algoId: this.algoId,
-      cleanJobs
+      cleanJobs,
+      ntime,
+      extranonce2: extranonce2Hex
     });
   }
 
@@ -348,11 +399,14 @@ class StratumClient extends EventEmitter {
     if (!params || !params[0]) return;
     const diff = Number(params[0]);
     this.currentDifficulty = diff;
+    const factor = getTargetFactor(this.algoId);
     const maxTarget = 0x00000000ffff0000000000000000000000000000000000000000000000000000n;
     const diffMultiplier = 1000000n;
     const scaledDiff = BigInt(Math.max(1, Math.floor(diff * 1000000)));
-    const targetVal = (maxTarget * diffMultiplier) / scaledDiff;
+    const factorBig = BigInt(Math.floor(factor * 1000000));
+    const targetVal = (maxTarget * factorBig) / scaledDiff;
     this.currentTarget = targetVal.toString(16).padStart(64, '0');
+    this.emit('difficulty_change', { difficulty: diff, target: this.currentTarget, factor });
   }
 
   handleSetTarget(params) {
@@ -375,11 +429,13 @@ class StratumClient extends EventEmitter {
       }, (res) => this.handleSubmitResponse(res));
     } else {
       const nonceHex = solution.nonce.toString(16).padStart(8, '0');
+      const ntime = solution.ntime || this.currentNtime || Math.floor(Date.now() / 1000).toString(16);
+      const extranonce2 = solution.extranonce2 || this.lastExtranonce2Hex || '00000000';
       this.sendRpc('mining.submit', [
         curPool.wallet,
         solution.jobId,
-        '00000000',
-        Math.floor(Date.now() / 1000).toString(16),
+        extranonce2,
+        ntime,
         nonceHex
       ], (res) => this.handleSubmitResponse(res));
     }
